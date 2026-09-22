@@ -8,16 +8,23 @@ from pydantic import BaseModel
 app = FastAPI()
 
 
-# This describes the information a user must provide
-# when creating a new issue.
+# --------------------
+# Issue Models
+# --------------------
+
 class IssueCreate(BaseModel):
     title: str
     description: str
     priority: str
 
 
-# This describes a complete issue after our application
-# has created it.
+class IssueUpdate(BaseModel):
+    title: str
+    description: str
+    status: str
+    priority: str
+
+
 class Issue(BaseModel):
     id: int
     title: str
@@ -27,34 +34,32 @@ class Issue(BaseModel):
     created_at: datetime
 
 
-# Temporary storage for our issues.
-# PostgreSQL will replace this later.
+# --------------------
+# Temporary Data Store
+# --------------------
+
 issues: list[Issue] = []
+next_issue_id = 1
 
 
-@app.get("/")
-def root():
-    return {"message": "Incident Tracker API is running"}
-
-
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}
-
+# --------------------
+# CRUD Endpoints
+# --------------------
 
 @app.post("/issues", response_model=Issue, status_code=201)
-def create_issue(issue_data: IssueCreate):
+def create_issue(issue: IssueCreate):
+    global next_issue_id
     new_issue = Issue(
-        id=len(issues) + 1,
-        title=issue_data.title,
-        description=issue_data.description,
+        id=next_issue_id,
+        title=issue.title,
+        description=issue.description,
         status="open",
-        priority=issue_data.priority,
+        priority=issue.priority,
         created_at=datetime.now(timezone.utc),
     )
 
     issues.append(new_issue)
-
+    next_issue_id += 1
     return new_issue
 
 
@@ -69,7 +74,33 @@ def get_issue(issue_id: int):
         if issue.id == issue_id:
             return issue
 
-    raise HTTPException(
-        status_code=404,
-        detail="Issue not found",
-    )
+    raise HTTPException(status_code=404, detail="Issue not found")
+
+
+@app.put("/issues/{issue_id}", response_model=Issue)
+def update_issue(issue_id: int, updated_data: IssueUpdate):
+    for index, issue in enumerate(issues):
+        if issue.id == issue_id:
+            updated_issue = Issue(
+                id=issue.id,
+                title=updated_data.title,
+                description=updated_data.description,
+                status=updated_data.status,
+                priority=updated_data.priority,
+                created_at=issue.created_at,
+            )
+
+            issues[index] = updated_issue
+            return updated_issue
+
+    raise HTTPException(status_code=404, detail="Issue not found")
+
+
+@app.delete("/issues/{issue_id}", status_code=204)
+def delete_issue(issue_id: int):
+    for index, issue in enumerate(issues):
+        if issue.id == issue_id:
+            issues.pop(index)
+            return
+
+    raise HTTPException(status_code=404, detail="Issue not found")
