@@ -1,12 +1,24 @@
-from datetime import datetime, timezone
+from fastapi import FastAPI, HTTPException, Depends
+from pydantic import BaseModel, ConfigDict
+from datetime import datetime
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
+import models
+from database import SessionLocal, engine
+
+models.Base.metadata.create_all(bind=engine)
 
 # Create the FastAPI application.
 app = FastAPI()
 
+def get_db():
+    db = SessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()
 
 # --------------------
 # Issue Models
@@ -33,6 +45,7 @@ class Issue(BaseModel):
     priority: str
     created_at: datetime
 
+    model_config = ConfigDict(from_attributes=True)
 
 # --------------------
 # Temporary Data Store
@@ -47,21 +60,19 @@ next_issue_id = 1
 # --------------------
 
 @app.post("/issues", response_model=Issue, status_code=201)
-def create_issue(issue: IssueCreate):
-    global next_issue_id
-    new_issue = Issue(
-        id=next_issue_id,
+def create_issue(issue: IssueCreate, db: Session = Depends(get_db)):
+    new_issue = models.IssueModel(
         title=issue.title,
         description=issue.description,
         status="open",
         priority=issue.priority,
-        created_at=datetime.now(timezone.utc),
     )
 
-    issues.append(new_issue)
-    next_issue_id += 1
-    return new_issue
+    db.add(new_issue)
+    db.commit()
+    db.refresh(new_issue)
 
+    return new_issue
 
 @app.get("/issues", response_model=list[Issue])
 def get_issues():
