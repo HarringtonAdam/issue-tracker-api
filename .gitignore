@@ -10,3 +10,6 @@ __pycache__/
 
 # Ignore VS Code-specific project settings
 .vscode/
+
+# Ignore tracker.db 
+tracker.db
