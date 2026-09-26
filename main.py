@@ -47,13 +47,6 @@ class Issue(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-# --------------------
-# Temporary Data Store
-# --------------------
-
-issues: list[Issue] = []
-next_issue_id = 1
-
 
 # --------------------
 # CRUD Endpoints
@@ -75,43 +68,66 @@ def create_issue(issue: IssueCreate, db: Session = Depends(get_db)):
     return new_issue
 
 @app.get("/issues", response_model=list[Issue])
-def get_issues():
-    return issues
+def get_issues(db: Session = Depends(get_db)):
+    db_issues = db.query(models.IssueModel).all()
+
+    return db_issues
 
 
 @app.get("/issues/{issue_id}", response_model=Issue)
-def get_issue(issue_id: int):
-    for issue in issues:
-        if issue.id == issue_id:
-            return issue
+def get_issue(issue_id: int, db: Session = Depends(get_db)):
+    issue = (
+        db.query(models.IssueModel)
+        .filter(models.IssueModel.id == issue_id)
+        .first()
+    )
 
-    raise HTTPException(status_code=404, detail="Issue not found")
+    if issue is None:
+        raise HTTPException(status_code=404, detail="Issue not found")
 
+    return issue
 
 @app.put("/issues/{issue_id}", response_model=Issue)
-def update_issue(issue_id: int, updated_data: IssueUpdate):
-    for index, issue in enumerate(issues):
-        if issue.id == issue_id:
-            updated_issue = Issue(
-                id=issue.id,
-                title=updated_data.title,
-                description=updated_data.description,
-                status=updated_data.status,
-                priority=updated_data.priority,
-                created_at=issue.created_at,
-            )
+def update_issue(
+    issue_id: int,
+    updated_data: IssueUpdate,
+    db: Session = Depends(get_db),
+):
+    issue = (
+        db.query(models.IssueModel)
+        .filter(models.IssueModel.id == issue_id)
+        .first()
+    )
 
-            issues[index] = updated_issue
-            return updated_issue
+    if issue is None:
+        raise HTTPException(status_code=404, detail="Issue not found")
 
-    raise HTTPException(status_code=404, detail="Issue not found")
+    issue.title = updated_data.title
+    issue.description = updated_data.description
+    issue.status = updated_data.status
+    issue.priority = updated_data.priority
+
+    db.commit()
+    db.refresh(issue)
+
+    return issue
 
 
 @app.delete("/issues/{issue_id}", status_code=204)
-def delete_issue(issue_id: int):
-    for index, issue in enumerate(issues):
-        if issue.id == issue_id:
-            issues.pop(index)
-            return
+def delete_issue(
+    issue_id: int,
+    db: Session = Depends(get_db),
+):
+    issue = (
+        db.query(models.IssueModel)
+        .filter(models.IssueModel.id == issue_id)
+        .first()
+    )
 
-    raise HTTPException(status_code=404, detail="Issue not found")
+    if issue is None:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    db.delete(issue)
+    db.commit()
+
+    return
