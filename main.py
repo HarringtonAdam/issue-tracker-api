@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
+from enum import Enum
 
 from sqlalchemy.orm import Session
 
@@ -20,6 +21,18 @@ def get_db():
     finally:
         db.close()
 
+
+class IssueStatus(str, Enum):
+    open = "open"
+    in_progress = "in_progress"
+    closed = "closed"
+
+class IssuePriority(str, Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+
 # --------------------
 # Issue Models
 # --------------------
@@ -27,22 +40,22 @@ def get_db():
 class IssueCreate(BaseModel):
     title: str
     description: str
-    priority: str
+    priority: IssuePriority = IssuePriority.medium
 
 
 class IssueUpdate(BaseModel):
-    title: str
-    description: str
-    status: str
-    priority: str
+    title: str | None = None
+    description: str | None = None
+    status: IssueStatus | None = None
+    priority: IssuePriority | None = None
 
 
 class Issue(BaseModel):
     id: int
     title: str
     description: str
-    status: str
-    priority: str
+    status: IssueStatus
+    priority: IssuePriority
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -58,7 +71,7 @@ def create_issue(issue: IssueCreate, db: Session = Depends(get_db)):
         title=issue.title,
         description=issue.description,
         status="open",
-        priority=issue.priority,
+        priority=issue.priority.value,
     )
 
     db.add(new_issue)
@@ -102,10 +115,14 @@ def update_issue(
     if issue is None:
         raise HTTPException(status_code=404, detail="Issue not found")
 
-    issue.title = updated_data.title
-    issue.description = updated_data.description
-    issue.status = updated_data.status
-    issue.priority = updated_data.priority
+    if updated_data.title is not None:
+        issue.title = updated_data.title
+    if updated_data.description is not None:
+        issue.description = updated_data.description
+    if updated_data.status is not None:
+        issue.status = updated_data.status.value
+    if updated_data.priority is not None:
+        issue.priority = updated_data.priority.value
 
     db.commit()
     db.refresh(issue)
