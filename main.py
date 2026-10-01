@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StringConstraints
+from typing import Annotated
 from datetime import datetime
 from enum import Enum
 
@@ -37,15 +38,23 @@ class IssuePriority(str, Enum):
 # Issue Models
 # --------------------
 
+IssueTitle = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+]
+IssueDescription = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=1000)
+]
+
+
 class IssueCreate(BaseModel):
-    title: str
-    description: str
+    title: IssueTitle
+    description: IssueDescription | None = None
     priority: IssuePriority = IssuePriority.medium
 
 
 class IssueUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
+    title: IssueTitle | None = None
+    description: IssueDescription | None = None
     status: IssueStatus | None = None
     priority: IssuePriority | None = None
 
