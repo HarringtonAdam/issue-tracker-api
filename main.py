@@ -66,6 +66,7 @@ class Issue(BaseModel):
     status: IssueStatus
     priority: IssuePriority
     created_at: datetime
+    updated_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
 

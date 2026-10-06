@@ -16,3 +16,10 @@ class IssueModel(Base):
         DateTime(timezone=True),
         server_default=func.now()
     )
+    updated_at = Column(
+        DateTime(timezone=True),
+        # Supply the insert default for existing databases migrated without one.
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
