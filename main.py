@@ -91,8 +91,19 @@ def create_issue(issue: IssueCreate, db: Session = Depends(get_db)):
     return new_issue
 
 @app.get("/issues", response_model=list[Issue])
-def get_issues(db: Session = Depends(get_db)):
-    db_issues = db.query(models.IssueModel).all()
+def get_issues(
+    db: Session = Depends(get_db),
+    status: IssueStatus | None = None,
+    priority: IssuePriority | None = None,
+):
+    query = db.query(models.IssueModel)
+
+    if status is not None:
+        query = query.filter(models.IssueModel.status == status.value)
+    if priority is not None:
+        query = query.filter(models.IssueModel.priority == priority.value)
+
+    db_issues = query.all()
 
     return db_issues
 
