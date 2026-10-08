@@ -13,3 +13,6 @@ __pycache__/
 
 # Ignore tracker.db 
 tracker.db
+
+# Ignore backups
+*.db.bak
