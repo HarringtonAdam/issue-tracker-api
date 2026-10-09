@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 from pydantic import BaseModel, ConfigDict, StringConstraints
 from typing import Annotated
 from datetime import datetime
@@ -95,6 +95,8 @@ def get_issues(
     db: Session = Depends(get_db),
     status: IssueStatus | None = None,
     priority: IssuePriority | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ):
     query = db.query(models.IssueModel)
 
@@ -103,7 +105,7 @@ def get_issues(
     if priority is not None:
         query = query.filter(models.IssueModel.priority == priority.value)
 
-    db_issues = query.all()
+    db_issues = query.offset(offset).limit(limit).all()
 
     return db_issues
 
