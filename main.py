@@ -34,6 +34,17 @@ class IssuePriority(str, Enum):
     high = "high"
 
 
+class IssueSortBy(str, Enum):
+    id = "id"
+    created_at = "created_at"
+    updated_at = "updated_at"
+
+
+class SortOrder(str, Enum):
+    asc = "asc"
+    desc = "desc"
+
+
 # --------------------
 # Issue Models
 # --------------------
@@ -97,6 +108,8 @@ def get_issues(
     priority: IssuePriority | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
+    sort_by: IssueSortBy = IssueSortBy.id,
+    sort_order: SortOrder = SortOrder.asc,
 ):
     query = db.query(models.IssueModel)
 
@@ -104,6 +117,19 @@ def get_issues(
         query = query.filter(models.IssueModel.status == status.value)
     if priority is not None:
         query = query.filter(models.IssueModel.priority == priority.value)
+
+    sort_columns = {
+        IssueSortBy.id: models.IssueModel.id,
+        IssueSortBy.created_at: models.IssueModel.created_at,
+        IssueSortBy.updated_at: models.IssueModel.updated_at,
+    }
+    sort_column = sort_columns[sort_by]
+    query = query.order_by(
+        sort_column.desc() if sort_order == SortOrder.desc else sort_column.asc()
+    )
+    if sort_by != IssueSortBy.id:
+        # Break timestamp ties consistently for pagination.
+        query = query.order_by(models.IssueModel.id.asc())
 
     db_issues = query.offset(offset).limit(limit).all()
 
