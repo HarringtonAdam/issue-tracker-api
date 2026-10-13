@@ -4,6 +4,7 @@
 # Ignore Python-generated cache files
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # Ignore environment variable files
 .env
