@@ -18,8 +18,7 @@ class IssueModel(Base):
     )
     updated_at = Column(
         DateTime(timezone=True),
-        # Supply the insert default for existing databases migrated without one.
+        # SQLAlchemy supplies timestamps on inserts and updates.
         default=func.now(),
-        server_default=func.now(),
         onupdate=func.now(),
     )

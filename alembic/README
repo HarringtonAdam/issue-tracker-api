@@ -1,0 +1,61 @@
+Issue tracker migrations
+========================
+
+Run commands from the project root, the same working directory used by the app.
+env.py imports DATABASE_URL and Base from database.py and imports models to
+register its tables. It does not import main or run create_all. No separate
+production database URL is maintained in alembic.ini.
+
+Baseline: 0001 (0001_initial_issues_schema.py)
+Generated against empty in-memory SQLite and corrected during initial adoption,
+it creates issues and ix_issues_id with the model types, nullability, primary key,
+and created_at server default. updated_at has no server default: SQLAlchemy's
+default=func.now() and onupdate=func.now() supply its timestamps. These are SQL
+expressions included in application writes, not database triggers. Raw SQL
+inserts that omit updated_at leave it null, matching the existing database.
+
+Existing tracker.db: stamped at 0001
+The redundant updated_at server default was removed from the uncommitted model
+and baseline to match the existing schema. The database itself was not changed
+by this correction. Its existing revision stamp remains valid.
+
+Stamp versus upgrade
+- upgrade executes migration operations and records the resulting revision.
+- stamp only records a revision in alembic_version (creating that tracking table
+  if necessary). It does not execute upgrade(), alter issues, or repair drift.
+  After verifying an existing database matches baseline 0001, the command is:
+  .\.venv\Scripts\python.exe -m alembic stamp 0001
+  The current tracker.db already records 0001; no repeat stamp is needed.
+
+Commands
+  .\.venv\Scripts\python.exe -m alembic history --verbose
+  .\.venv\Scripts\python.exe -m alembic current
+  .\.venv\Scripts\python.exe -m alembic upgrade head
+
+For a brand-new empty database, run upgrade head BEFORE starting the app.
+The existing tracker.db is already at 0001. Other populated, unversioned copies
+must have their schema verified before stamping; do not execute the initial
+CREATE TABLE migration against a populated, unversioned issues table.
+
+Future workflow
+1. Back up development data and ensure the database is at the current head.
+2. Edit models.py.
+3. Generate a candidate migration:
+   .\.venv\Scripts\python.exe -m alembic revision --autogenerate -m "Describe change"
+4. Review upgrade/downgrade. Check defaults, renames, data conversions, and SQLite
+   limitations. SQLite changes may require batch operations; do not apply an
+   unreviewed table rebuild. Autogenerate produces a draft, not a guarantee.
+5. Test on disposable databases, including a copy of old data when needed.
+   Update migration tests as the revision chain advances, and run pytest.
+6. Apply the reviewed migration:
+   .\.venv\Scripts\python.exe -m alembic upgrade head
+7. Verify:
+   .\.venv\Scripts\python.exe -m alembic current
+   .\.venv\Scripts\python.exe -m alembic check
+8. Commit model/config/migration/test files, never databases or backups.
+
+main.py's create_all remains temporarily to preserve startup behavior. It does
+not alter existing tables or replace migrations. API fixtures still create
+isolated schemas as before. test_migrations.py separately upgrades a blank
+SQLite database, compares it with the models including defaults, verifies a
+repeat upgrade is harmless, and removes the disposable database afterward.
